@@ -1,6 +1,6 @@
 
 
-const GROW_SPEED = 0.01
+
 
 
 function randomColorValues() {
@@ -34,8 +34,8 @@ class Ball {
   }
 
   isInBounds() {
-    if (this.position.x > width - this.r) {
-      this.position.x = width - this.r;
+    if (this.position.x > simWidth - this.r) {
+      this.position.x = simWidth - this.r;
       return false;
     } else if (this.position.x < this.r) {
       this.position.x = this.r;
@@ -50,8 +50,8 @@ class Ball {
     return true
   }
   setBoundedPostion(newX, newY) {
-    if (newX > width - this.r) {
-      this.position.x = width - this.r;
+    if (newX > simWidth - this.r) {
+      this.position.x = simWidth - this.r;
     } else if (newX < this.r) {
       this.position.x = this.r;
     } else {
@@ -67,8 +67,8 @@ class Ball {
 
 
   setBoundedRadius(newR) {
-    if (this.position.x > width - newR) {
-      this.position.x = width - this.r;
+    if (this.position.x > simWidth - newR) {
+      this.position.x = simWidth - this.r;
       return;
     }
     if (this.position.x < newR) {
@@ -91,8 +91,8 @@ class Ball {
 
 
   checkBoundaryCollision() {
-    if (this.position.x > width - this.r) {
-      this.position.x = width - this.r;
+    if (this.position.x > simWidth - this.r) {
+      this.position.x = simWidth - this.r;
       this.velocity.x *= -1;
     } else if (this.position.x < this.r) {
       this.position.x = this.r;
@@ -206,9 +206,9 @@ class Ball {
 
 
   display() {
-    noStroke();
-    fill(this.color);
-    ellipse(this.position.x, this.position.y, this.r * 2, this.r * 2);
+    simulationBuffer.noStroke();
+    simulationBuffer.fill(this.color);
+    simulationBuffer.ellipse(this.position.x, this.position.y, this.r * 2, this.r * 2);
   }
 
 }
@@ -221,16 +221,29 @@ let mouseWasPressed = false;
 let mouseWasReleased = false;
 let nextBall = new Ball(0, 0, 10);
 let paused = false;
-
-
+let growSpeed = 0.01;
+let canvasHeight = 800;
+let canvasWidth = 1000;
+let leftBuffer;
+let rightBuffer;
+let SimSize = 0.8
+let simWidth = SimSize*canvasWidth;
+let controlsWidth = (1-SimSize)*canvasWidth;
+let gravitySlider;
 
 function setup() {
-  createCanvas(1000, 1600);
+  createCanvas(canvasWidth, canvasHeight);
+  simulationBuffer = createGraphics(simWidth,canvasHeight);
+  controlsBuffer = createGraphics(controlsWidth,canvasHeight);
+  gravitySlider = createSlider(0,1,0,0);
+  gravitySlider.position(simWidth+10, 20);
+  gravitySlider.size(controlsWidth-20,);
+
 }
 
 function mouseWheel(event) {
   if (mouseIsPressed) {
-    nextBall.setBoundedRadius(nextBall.r * (1 - GROW_SPEED * event.delta / 90))
+    nextBall.setBoundedRadius(nextBall.r * (1 - growSpeed * event.delta / 90))
     nextBall.updateMass();
   }
 }
@@ -251,7 +264,15 @@ function keyTyped(){
 }
 
 function draw() {
-  background(51);
+
+
+  g = gravitySlider.value();
+  gravity.set(0,g);
+
+
+  
+  simulationBuffer.background(51);
+  controlsBuffer.background(10);
   mouseWasReleased = false;
   if (mouseIsPressed) {
     mouseWasPressed = true;
@@ -268,7 +289,7 @@ function draw() {
     }
 
     // if(nextBall.isInBounds()){
-    //   nextBall.r = nextBall.r*(1+GROW_SPEED);
+    //   nextBall.r = nextBall.r*(1+growSpeed);
 
     // }
     if (nextBall.isInBounds())
@@ -298,6 +319,8 @@ function draw() {
       balls[i].checkBoundaryCollision();
       balls[j].checkBoundaryCollision();
     }
+    image(simulationBuffer,0,0);
+    image(controlsBuffer,SimSize*canvasWidth,0);
   }
 
   //console.log(ball.position)

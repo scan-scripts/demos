@@ -1,41 +1,37 @@
-
-
-const GROW_SPEED = 0.01
-
-
-function randomColorValues() {
-  return
-}
-
-
+const ballDensity = 10; 
 
 class Ball {
   constructor(x, y, r) {
     this.position = new p5.Vector(x, y);
     this.velocity = p5.Vector.random2D();
     this.velocity.mult(0);
+    this.acceleration =  new p5.Vector(0, 0);
     this.r = r;
-    this.m = r*r / 0.1;
+    this.m = ballDensity*r**2;
     this.color = [256, 256, 256, 200];
+    this.q = 100//charge
   }
   calcEnergy(){
     let K = this.m * this.velocity.mag()/2;
     let V =this.m*  g*(height-this.position.y);
     return K+V;
   }
+  applyForce(force){
+    let appliedAcceleration = force.div(this.m);
+    this.acceleration = this.acceleration.add(appliedAcceleration);
+  }
   update() {
-    this.velocity.add(gravity);
+    this.velocity.add(this.acceleration);
     this.position.add(this.velocity);
-    
   }
 
   updateMass() {
-    this.m = this.r*this.r/ 10;
+    this.m = ballDensity*(this.r)**2;
   }
 
   isInBounds() {
-    if (this.position.x > width - this.r) {
-      this.position.x = width - this.r;
+    if (this.position.x > simWidth - this.r) {
+      this.position.x = simWidth - this.r;
       return false;
     } else if (this.position.x < this.r) {
       this.position.x = this.r;
@@ -50,8 +46,8 @@ class Ball {
     return true
   }
   setBoundedPostion(newX, newY) {
-    if (newX > width - this.r) {
-      this.position.x = width - this.r;
+    if (newX > simWidth - this.r) {
+      this.position.x = simWidth - this.r;
     } else if (newX < this.r) {
       this.position.x = this.r;
     } else {
@@ -67,8 +63,8 @@ class Ball {
 
 
   setBoundedRadius(newR) {
-    if (this.position.x > width - newR) {
-      this.position.x = width - this.r;
+    if (this.position.x > simWidth - newR) {
+      this.position.x = simWidth - this.r;
       return;
     }
     if (this.position.x < newR) {
@@ -91,8 +87,8 @@ class Ball {
 
 
   checkBoundaryCollision() {
-    if (this.position.x > width - this.r) {
-      this.position.x = width - this.r;
+    if (this.position.x > simWidth - this.r) {
+      this.position.x = simWidth - this.r;
       this.velocity.x *= -1;
     } else if (this.position.x < this.r) {
       this.position.x = this.r;
@@ -104,6 +100,18 @@ class Ball {
       this.position.y = this.r;
       this.velocity.y *= -1;
     }
+  }
+  calcCoulombForce(other){
+    //F = k*q1*q2/|r|^2 in the direction of the vector r
+    let r = p5.Vector.sub(other.position, this.position);
+    if(r.mag == 0){
+      let F_direction = 10000000000*r.normalize();
+    }
+    let F_mag = -k * (this.q * other.q)/(r.mag())**2;
+    let F_direction = r.normalize();
+    let F_vec = F_direction.mult(F_mag);
+    return F_vec;
+
   }
 
   checkCollision(other) {
@@ -206,31 +214,49 @@ class Ball {
 
 
   display() {
-    noStroke();
-    fill(this.color);
-    ellipse(this.position.x, this.position.y, this.r * 2, this.r * 2);
+    simulationBuffer.noStroke();
+    simulationBuffer.fill(this.color);
+    simulationBuffer.ellipse(this.position.x, this.position.y, this.r * 2, this.r * 2);
   }
 
 }
-let g = 0.1 
+let g = 0.1;
+let k = 10;
 gravity = new p5.Vector(0,g);
+let initalBallSize = 5;
 let balls = [];
-balls.push(new Ball(100, 100, 10))
+balls.push(new Ball(100, 100, initalBallSize))
 let mouseToggle = true;
 let mouseWasPressed = false;
 let mouseWasReleased = false;
-let nextBall = new Ball(0, 0, 10);
+let nextBall = new Ball(0, 0, initalBallSize);
 let paused = false;
+let growSpeed = 0.01;
+let canvasHeight = 800;
+let canvasWidth = 1000;
+let leftBuffer;
+let rightBuffer;
+let SimSize = 0.8
+let simWidth = SimSize*canvasWidth;
+let controlsWidth = (1-SimSize)*canvasWidth;
+let gravitySlider;
+
 
 
 
 function setup() {
-  createCanvas(1000, 1600);
+  createCanvas(canvasWidth, canvasHeight);
+  simulationBuffer = createGraphics(simWidth,canvasHeight);
+  controlsBuffer = createGraphics(controlsWidth,canvasHeight);
+  gravitySlider = createSlider(0,1,0.1,0);
+  gravitySlider.position(simWidth+10, 20);
+  gravitySlider.size(controlsWidth-20,);
+
 }
 
 function mouseWheel(event) {
   if (mouseIsPressed) {
-    nextBall.setBoundedRadius(nextBall.r * (1 - GROW_SPEED * event.delta / 90))
+    nextBall.setBoundedRadius(nextBall.r * (1 - growSpeed * event.delta / 90))
     nextBall.updateMass();
   }
 }
@@ -239,7 +265,15 @@ function keyTyped(){
     paused = !paused;
 
   } 
-  if (key = "e"){
+  if(key == "b"){
+    for(let i = 0; i<balls.length; i++){
+      console.log(balls[i]);
+    }
+  }
+  if(key == "r"){
+    balls = [];
+  }
+  if (key == "e"){
    let E = 0;
    let Ei;
    for(let i = 0; i<balls.length ; i++){
@@ -251,7 +285,15 @@ function keyTyped(){
 }
 
 function draw() {
-  background(51);
+
+
+  g = gravitySlider.value();
+  gravity.set(0,g);
+
+
+  
+  simulationBuffer.background(51);
+  controlsBuffer.background(10);
   mouseWasReleased = false;
   if (mouseIsPressed) {
     mouseWasPressed = true;
@@ -268,7 +310,7 @@ function draw() {
     }
 
     // if(nextBall.isInBounds()){
-    //   nextBall.r = nextBall.r*(1+GROW_SPEED);
+    //   nextBall.r = nextBall.r*(1+growSpeed);
 
     // }
     if (nextBall.isInBounds())
@@ -283,22 +325,39 @@ function draw() {
     //   nextBall.checkCollision(balls[i]);
     // }
     balls.push(nextBall);
-    nextBall = new Ball(mouseX, mouseY, 20);
+    nextBall = new Ball(mouseX, mouseY, initalBallSize);
     nextBall.setBoundedPostion(mouseX, mouseY)
   }
-
   for (let i = 0; i < balls.length; i++) {
-    if(!paused){
-      balls[i].update()
-    }
-    balls[i].display();
-    balls[i].checkBoundaryCollision();
-    for (let j = i + 1; j < balls.length; j++) {
-      balls[i].checkCollision(balls[j]);
-      balls[i].checkBoundaryCollision();
-      balls[j].checkBoundaryCollision();
-    }
+    balls[i].acceleration.set(gravity);
   }
+  for (let i = 0; i < balls.length; i++) {
+    balls[i].display()
+    balls[i].checkBoundaryCollision();
+    if(!paused){
+       for (let j = 0; j < balls.length; j++) {
+        if(i != j){
+          force_ij = balls[i].calcCoulombForce(balls[j]);
+          balls[i].applyForce(force_ij);
+        }
+
+        //balls[j].applyForce(force_ij.mult(-1));
+      }
+      balls[i].update();
+      balls[i].checkBoundaryCollision();
+    }
+    
+    
+    // for (let j = i + 1; j < balls.length; j++) {
+    //   balls[i].checkCollision(balls[j]);
+    //   balls[i].checkBoundaryCollision();
+    //   balls[j].checkBoundaryCollision();
+    // }
+
+
+  }
+  image(simulationBuffer,0,0);
+  image(controlsBuffer,simulationBuffer.width,0);
 
   //console.log(ball.position)
 }
