@@ -11,7 +11,24 @@ function linSpace(start, stop, num) {
     return a
 
 }
+
 /**
+ * 
+ * @param {number} start 
+ * @param {number} stop 
+ * @param {number} step 
+ * @returns {number[]}
+ */
+function arange(start, stop, step){
+    let a = [];
+    num = floor((stop - start)/step)
+    for (let i = 0; i < num; i++) {
+        a.push(start + i * step);
+    }
+    return a
+
+}
+
 /* 
 TODO
 store the ponts and functions to plot we only need to redraw them when when plot changes
@@ -127,12 +144,17 @@ class Plotter {
      * @param {number} yMax
      */
     constructor(xMin, xMax, yMin, yMax) {
+        this.xMin0 = xMin;
+        this.xMax0 = xMax;
+        this.yMin0 = yMin;
+        this.yMax0 = yMax;
+
         this.xMin = xMin;
         this.xMax = xMax;
         this.yMin = yMin;
         this.yMax = yMax;
         this.background_color = color(255);
-        this.axis_space = 25
+        this.axis_space = 0;
         this.canvasX = this.axis_space / 2;
         this.canvasY = this.axis_space / 2;
         this.xTicks = [];
@@ -189,7 +211,10 @@ class Plotter {
     _yToAxisSystem(y) {
         return (this.graphHeight - y) * ((this.yMax - this.yMin) / this.graphHeight) + this.yMin;
     }
-
+    autoTicks(tickStepX = 1, tickStepY = 1, centerX = 0, centerY= 0){
+        this.xTicks = arange(centerX,this.xMin, -tickStepX).concat(arange(centerX,this.xMax,tickStepX));
+        this.yTicks = arange(centerY,this.yMin, -tickStepY).concat(arange(centerY,this.yMax,tickStepY));      
+    }
 
     /**
      * 
@@ -319,14 +344,14 @@ class Plotter {
     drawGrid() {
         this.graphArea.stroke(this.gridColor);
         this.graphArea.strokeWeight(1);
-        let vertGridLinekBottom = this._yToGraphSystem(0) - this.graphHeight / 2;
-        let vertGridLineTop = this._yToGraphSystem(0) + this.graphHeight / 2;
+        let vertGridLinekBottom = this._yToGraphSystem(this.yMin);
+        let vertGridLineTop = this._yToGraphSystem(this.yMax);
         this.xTicks.map(x => this._xToGraphSystem(x)).forEach(tickX => {
             this.graphArea.line(tickX, vertGridLinekBottom, tickX, vertGridLineTop);
 
         });
-        let horzGridLineLeft = this._xToGraphSystem(0) - this.graphWidth / 2;
-        let horzGridLineRight = this._xToGraphSystem(0) + this.graphWidth / 2;
+        let horzGridLineLeft = this._xToGraphSystem(this.xMin);
+        let horzGridLineRight = this._xToGraphSystem(this.xMax);
         this.yTicks.map(y => this._yToGraphSystem(y)).forEach(tickY => {
             this.graphArea.line(horzGridLineLeft, tickY, horzGridLineRight, tickY);
         });
@@ -362,6 +387,9 @@ class Plotter {
         }
 
     }
+    scrollToZoom(delta){
+        this.zoom (1 - 0.1*(delta/100));
+    }
 
     zoomX(zoom_factor) {
 
@@ -370,12 +398,19 @@ class Plotter {
     zoomX(zoom_factor) {
 
     }
+
 
     zoom(zoom_factor) {
         this.xMin *=  1/zoom_factor;
         this.xMax *=  1/zoom_factor;
         this.yMin *=  1/zoom_factor;
         this.yMax *=  1/zoom_factor;
+    }
+    resetAxes(){
+        this.xMin = this.xMin0;
+        this.xMax = this.xMax0;
+        this.yMin = this.yMin0;
+        this.yMax = this.yMax0;
     }
 
     display() {
@@ -402,7 +437,7 @@ function setup() {
     plot.setXTicks(linSpace(-10, 11, 21));
     plot.setYTicks(linSpace(-10, 11, 21));
 
-    
+
     slider = new CanvasSlider(0, 10, 2, -1)
     slider.setPostion(100, 100);
 }
@@ -410,7 +445,9 @@ function setup() {
 function mousePressed() {
 
 }
-
+function mouseWheel(event){
+    plot.scrollToZoom(event.delta)
+}
 
 
 function mouseReleased() {
@@ -424,13 +461,15 @@ function keyTyped(){
     if(key == "x"){
         plot.zoom(0.9);
     }
+    if(key == "r"){
+        plot.resetAxes()
+    }
 
 }
 
 function draw() {
-
-
     slider.update();
+    plot.autoTicks();
     var f = x => sin(x * slider.getValue())
     plot.interactiveFunctions[0] = f;
     plot.dragToPan();
