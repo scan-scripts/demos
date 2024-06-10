@@ -11,6 +11,7 @@ function linSpace(start, stop, num) {
     return a
 
 }
+/**
 /* 
 TODO
 store the ponts and functions to plot we only need to redraw them when when plot changes
