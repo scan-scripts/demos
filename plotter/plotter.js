@@ -19,10 +19,10 @@ function linSpace(start, stop, num) {
  * @param {number} step 
  * @returns {number[]}
  */
-function arange(start, stop, step){
+function arange(start, stop, step) {
     let a = [];
-    num = floor((stop - start)/step)
-    for (let i = 0; i < num; i++) {
+    num = floor((stop - start) / step)
+    for (let i = 0; i <= num; i++) {
         a.push(start + i * step);
     }
     return a
@@ -105,7 +105,7 @@ class CanvasSlider {
             let mouseValue = (mouseX - this.x) * (this.maxValue - this.minValue) / this.width;
             this.value = constrain(mouseValue, this.minValue, this.maxValue);
             if (this.step > 0) {
-                //this.value = constrain(this.minValue + round((this.value - this.minValue) / this.step) * this.step, this.minValue, this.maxValue);
+                this.value = constrain(this.minValue + round((this.value - this.minValue) / this.step) * this.step, this.minValue, this.maxValue);
             }
             this.updateHandlePostion();
             //follow the mouseX as long as it is within bounds
@@ -141,9 +141,13 @@ class Plotter {
      * @param {number} xMin 
      * @param {number} xMax 
      * @param {number} yMin 
-     * @param {number} yMax
+     * @param {number} yMax 
+     * @param {number} graphHeight 
+     * @param {number} graphWidth 
+     * @param {number} graphX 
+     * @param {number} graphY 
      */
-    constructor(xMin, xMax, yMin, yMax) {
+    constructor(xMin, xMax, yMin, yMax, graphHeight = height, graphWidth = width, graphX = 0, graphY = 0) {
         this.xMin0 = xMin;
         this.xMax0 = xMax;
         this.yMin0 = yMin;
@@ -155,14 +159,14 @@ class Plotter {
         this.yMax = yMax;
         this.background_color = color(255);
         this.axis_space = 0;
-        this.canvasX = this.axis_space / 2;
-        this.canvasY = this.axis_space / 2;
+        this.canvasX = graphX
+        this.canvasY = graphY;
         this.xTicks = [];
         this.yTicks = [];
         this.AxisColor = color(20);
         this.showArrows = false;
-        this.graphWidth = width - this.axis_space
-        this.graphHeight = height - this.axis_space
+        this.graphWidth = graphWidth;
+        this.graphHeight = graphHeight;
         this.graphArea = createGraphics(this.graphWidth, this.graphHeight);
         this.staticPoints = [];
         this.staticFunctions = [];
@@ -211,9 +215,9 @@ class Plotter {
     _yToAxisSystem(y) {
         return (this.graphHeight - y) * ((this.yMax - this.yMin) / this.graphHeight) + this.yMin;
     }
-    autoTicks(tickStepX = 1, tickStepY = 1, centerX = 0, centerY= 0){
-        this.xTicks = arange(centerX,this.xMin, -tickStepX).concat(arange(centerX,this.xMax,tickStepX));
-        this.yTicks = arange(centerY,this.yMin, -tickStepY).concat(arange(centerY,this.yMax,tickStepY));      
+    autoTicks(tickStepX = 1, tickStepY = 1, centerX = 0, centerY = 0) {
+        this.xTicks = arange(centerX, this.xMin, -tickStepX).concat(arange(centerX, this.xMax, tickStepX));
+        this.yTicks = arange(centerY, this.yMin, -tickStepY).concat(arange(centerY, this.yMax, tickStepY));
     }
 
     /**
@@ -252,15 +256,15 @@ class Plotter {
 
 
         this.graphArea.textAlign(CENTER, TOP);
-        let HorzAxisLabelTop = this._yToGraphSystem(0) +this.tickSize ;
+        let HorzAxisLabelTop = this._yToGraphSystem(0) + this.tickSize;
         for (let i = 0; i < Xlabels.length; i++) {
             this.graphArea.text(Xlabels[i], this._xToGraphSystem(this.xTicks[i]), HorzAxisLabelTop)
 
         }
         let VertAxisLabelLeft = this._xToGraphSystem(0) - this.tickSize;
-        this.graphArea.textAlign(RIGHT,CENTER);
+        this.graphArea.textAlign(RIGHT, CENTER);
         for (let i = 0; i < Ylabels.length; i++) {
-            this.graphArea.text(Ylabels[i], VertAxisLabelLeft,this._yToGraphSystem(this.yTicks[i]))
+            this.graphArea.text(Ylabels[i], VertAxisLabelLeft, this._yToGraphSystem(this.yTicks[i]))
 
         }
     }
@@ -281,6 +285,7 @@ class Plotter {
      * @param {function} func 
      */
     plotFunction(func) {
+        console.log(func)
         let xs = this.graphAxislinSpace();
         let ys = xs.map(func);
         this.plotCurve(xs, ys);
@@ -370,7 +375,7 @@ class Plotter {
     }
     dragToPan() {
         if (mouseIsPressed && !this.isPanning && this.checkOver() == true) {
-            console.log(mouseY);
+            ;
             this.x0 = mouseX;
             this.y0 = mouseY;
             this.isPanning = true;
@@ -387,8 +392,12 @@ class Plotter {
         }
 
     }
-    scrollToZoom(delta){
-        this.zoom (1 - 0.1*(delta/100));
+    scrollToZoom(delta) {
+        let zoomSpeed = 0.01
+
+        //this.zoom(delta*zoomFactor/100);
+        this.zoomAroundPoint(1 + zoomSpeed * delta / 100, this._xToAxisSystem(mouseX), this._yToAxisSystem(mouseY));
+
     }
 
     zoomX(zoom_factor) {
@@ -400,13 +409,37 @@ class Plotter {
     }
 
 
-    zoom(zoom_factor) {
-        this.xMin *=  1/zoom_factor;
-        this.xMax *=  1/zoom_factor;
-        this.yMin *=  1/zoom_factor;
-        this.yMax *=  1/zoom_factor;
+    zoom(zoomAmount) {
+        let xRange = this.xMax - this.xMin;
+        let yRange = this.yMax - this.yMin;
+        this.xMin -= zoomAmount * xRange;
+        this.xMax += zoomAmount * xRange;
+        this.yMin -= zoomAmount * yRange;
+        this.yMax += zoomAmount * yRange;
     }
-    resetAxes(){
+    zoomAroundPoint(zoomFactor, x, y) {
+        let xRange = this.xMax - this.xMin;
+        let yRange = this.yMax - this.yMin;
+
+        this.xMin = zoomFactor * this.xMin - (zoomFactor - 1) * x;
+        this.xMax = zoomFactor * xRange + this.xMin;
+
+
+        this.yMin = zoomFactor * this.yMin - (zoomFactor - 1) * y;
+        this.yMax = zoomFactor * yRange + this.yMin;
+    }
+
+    OriginToGraphCenter() {
+        let xRange = this.xMax - this.xMin;
+        let yRange = this.yMax - this.yMin;
+        this.xMin = -xRange / 2;
+        this.xMax = xRange / 2;
+        this.yMin = -yRange / 2;
+        this.yMax = yRange / 2;
+
+    }
+
+    resetAxes() {
         this.xMin = this.xMin0;
         this.xMax = this.xMax0;
         this.yMin = this.yMin0;
@@ -414,7 +447,7 @@ class Plotter {
     }
 
     display() {
-        background(150);
+
         this.graphArea.background(this.background_color);
         this.drawInnerAxes()
         this.drawAxisTicks();
@@ -427,25 +460,72 @@ class Plotter {
     }
 }
 
+function squareWave(x) {
+    let A = 1
+    let P = 1
+    let D = 0.5
+    if (x < 0) {
+        return;
+    }
+    if (x % P >= 0 && x % P < D * P) {
+        return A;
+    } else {
+        return 0;
+    }
 
+}
 
+function squareWaveA(n, A = 1, D = 0.5) {
+    if (n == 0) {
+        return A / 2;
+    }
+    return A / (n * PI) * sin(2 * PI * n * D)
+}
+function squareWaveB(n, A = 1, D = 0.5) {
+    return 2 * A / (n * PI) * (sin(PI * n * D)) ** 2;
+
+}
+
+function fsquareWave(N) {
+    let P = 1
+    return function (x) {
+        let sum = squareWaveA(0) ;
+        for (let n = 1; n <= N; n++) {
+            sum += squareWaveA(n) * cos((2 * PI * n / P) * x) + squareWaveB(n) * sin((2 * PI * n / P) * x);
+        }
+        return sum;
+    }
+}
+
+function fsquareWave(N) {
+    let P = 1
+    return function (x) {
+        let sum = squareWaveA(0) ;
+        for (let n = 1; n <= N; n++) {
+            sum += squareWaveA(n) * cos((2 * PI * n / P) * x) + squareWaveB(n) * sin((2 * PI * n / P) * x);
+        }
+        return sum;
+    }
+}
 function setup() {
-    createCanvas(640, 360);
+    createCanvas(640, 640);
 
-    plot = new Plotter(-10, 10, -10, 10);
-    plot.interactiveFunctions.push(x => pow(x, 1))
+    plot = new Plotter(-10, 10, -10, 10, 400);
+    let a = x => x ** 2
+    plot.interactiveFunctions = [a, a]
+
     plot.setXTicks(linSpace(-10, 11, 21));
     plot.setYTicks(linSpace(-10, 11, 21));
 
 
-    slider = new CanvasSlider(0, 10, 2, -1)
-    slider.setPostion(100, 100);
+    slider = new CanvasSlider(0, 200, 0, 1)
+    slider.setPostion(100, 500);
 }
 
 function mousePressed() {
 
 }
-function mouseWheel(event){
+function mouseWheel(event) {
     plot.scrollToZoom(event.delta)
 }
 
@@ -454,24 +534,39 @@ function mouseReleased() {
 
 }
 
-function keyTyped(){
-    if(key == "z"){
+function keyTyped() {
+    if (key == "z") {
         plot.zoom(1.1);
     }
-    if(key == "x"){
+    if (key == "x") {
         plot.zoom(0.9);
     }
-    if(key == "r"){
+    if (key == "r") {
         plot.resetAxes()
     }
+    if (key == "c") {
+        plot.OriginToGraphCenter();
+    }
+    if (key == "m") {
+        console.log(plot._xToAxisSystem(mouseX), plot._yToAxisSystem(mouseY))
+    }
+    if (key == "z") {
+
+    }
+
 
 }
 
 function draw() {
+    background(255, 0, 100);
     slider.update();
     plot.autoTicks();
-    var f = x => sin(x * slider.getValue())
-    plot.interactiveFunctions[0] = f;
+    let value = slider.getValue()
+    var P = 1;
+    var f = fsquareWave(value);
+    plot.interactiveFunctions[0] = f
+    //console.log(plot.interactiveFunctions[0])
+    //plot.interactiveFunctions[1] = f
     plot.dragToPan();
     plot.display();
     slider.display();
