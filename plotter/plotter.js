@@ -33,7 +33,7 @@ function arange(start, stop, step) {
 TODO
 store the ponts and functions to plot we only need to redraw them when when plot changes
 all the not yet implemented methods
-figure out user input 
+
 
 */
 
@@ -175,6 +175,14 @@ class Plotter {
         this.tickSize = 10;
         this.gridColor = color(0, 0, 200, 60);
         this.isPanning = true;
+        this.sectionZoomToggle = false;
+        this.section = {
+            startX: 0,
+            startY: 0,
+            endX: 0,
+            endY: 0,
+            active: false
+        }
         //this.mouseWasPressed = false;
 
     }
@@ -285,10 +293,10 @@ class Plotter {
      * @param {function} func 
      */
     plotFunction(func) {
-        console.log(func)
+        //console.log(func)
         let xs = this.graphAxislinSpace();
         let ys = xs.map(func);
-        this.plotCurve(xs, ys);
+        this.plotSplineGraph(xs, ys);
 
     }
     plotPoint(x, y) {
@@ -317,7 +325,7 @@ class Plotter {
      * @param {number[]} xs 
      * @param {number[]} ys 
      */
-    plotCurve(xs, ys) {
+    plotSplineGraph(xs, ys) {
         if (xs.length == ys.length) {
             this.graphArea.noFill();
             this.graphArea.strokeWeight(2);
@@ -325,6 +333,21 @@ class Plotter {
             this.graphArea.beginShape();
             for (let i = 0; i < xs.length; i++) {
                 this.graphArea.curveVertex(this._xToGraphSystem(xs[i]), this._yToGraphSystem(ys[i]));
+            }
+            this.graphArea.endShape();
+
+        } else {
+            console.log("arrays of xs and ys points need to be the same length")
+        }
+    }
+    plotLineGraph(xs, ys) {
+        if (xs.length == ys.length) {
+            this.graphArea.noFill();
+            this.graphArea.strokeWeight(2);
+            this.graphArea.stroke(0);
+            this.graphArea.beginShape();
+            for (let i = 0; i < xs.length; i++) {
+                this.graphArea.vertex(this._xToGraphSystem(xs[i]), this._yToGraphSystem(ys[i]));
             }
             this.graphArea.endShape();
 
@@ -399,6 +422,66 @@ class Plotter {
         this.zoomAroundPoint(1 + zoomSpeed * delta / 100, this._xToAxisSystem(mouseX), this._yToAxisSystem(mouseY));
 
     }
+    overGraph() {
+        return ((mouseX >= this.graphX) && (mouseX <= this.graphX + this.graphWidth) && (mouseY >= this.graphY) && (mouseY <= this.graphY + this.graphHeight))
+    }
+
+    drawSection() {
+        this.graphArea.strokeWidth(1);
+        this.graphArea.stroke('red');
+        this.graphArea.rectMode(CORNERS);
+        this.graphArea.rect(this._xToAxisSystem(this.section.startX), this._yToAxisSystem(this.section.startY),
+            this._xToAxisSystem(this.section.endX), this._yToAxisSystem(this.section.endY));
+    }
+
+    axisToSection() {
+        let x1 = this._xToAxisSystem(this.section.startX);
+        let x2 = this._xToAxisSystem(this.section.endX);
+        let y1 = this._xToAxisSystem(this.section.startY);
+        let y2 = this._xToAxisSystem(this.section.endY);
+
+
+        this.xMin = min(x1, x2);
+        this.yMin = min(y1, y2);
+        this.xMax = max(x1, x2);
+        this.yMax = max(y1, y2);
+    }
+
+    sectionZoom() {
+        if (this.sectionZoomToggle === true) {
+            //console.log(this.section)
+            //TODO fix this
+
+
+
+            if (this.overGraph() && mouseIsPressed && this.section.active === false) {
+                this.section.startX = mouseX;
+                this.section.startY = mouseY;
+                this.section.active = true;
+            }
+            if (this.overGraph() && this.section.active === true) {
+                this.section.endX = mouseX;
+                this.section.endY = mouseY;
+                if (mouseIsPressed) {
+                    this.drawSection()
+                }
+                if (!mouseIsPressed) {
+                    this.axisToSection()
+                    //reset the section
+                    this.section = {
+                        startX: 0,
+                        startY: 0,
+                        endX: 0,
+                        endY: 0,
+                        active: false
+                    }
+                }
+            }
+        } else {
+            this.section.active = false;
+        }
+
+    }
 
     zoomX(zoom_factor) {
 
@@ -460,6 +543,14 @@ class Plotter {
     }
 }
 
+class PlotterFunction {
+    constructor(lineType = "spline", color = color(0), strokeWeight = 2) {
+        this.lineType
+
+    }
+}
+
+
 function squareWave(x) {
     let A = 1
     let P = 1
@@ -489,7 +580,7 @@ function squareWaveB(n, A = 1, D = 0.5) {
 function fsquareWave(N) {
     let P = 1
     return function (x) {
-        let sum = squareWaveA(0) ;
+        let sum = squareWaveA(0);
         for (let n = 1; n <= N; n++) {
             sum += squareWaveA(n) * cos((2 * PI * n / P) * x) + squareWaveB(n) * sin((2 * PI * n / P) * x);
         }
@@ -500,7 +591,7 @@ function fsquareWave(N) {
 function fsquareWave(N) {
     let P = 1
     return function (x) {
-        let sum = squareWaveA(0) ;
+        let sum = squareWaveA(0);
         for (let n = 1; n <= N; n++) {
             sum += squareWaveA(n) * cos((2 * PI * n / P) * x) + squareWaveB(n) * sin((2 * PI * n / P) * x);
         }
@@ -517,8 +608,11 @@ function setup() {
     plot.setXTicks(linSpace(-10, 11, 21));
     plot.setYTicks(linSpace(-10, 11, 21));
 
+    input = createInput('');
+    input.position(200, 410);
 
-    slider = new CanvasSlider(0, 200, 0, 1)
+
+    slider = new CanvasSlider(0, 20, 0, 1)
     slider.setPostion(100, 500);
 }
 
@@ -535,12 +629,6 @@ function mouseReleased() {
 }
 
 function keyTyped() {
-    if (key == "z") {
-        plot.zoom(1.1);
-    }
-    if (key == "x") {
-        plot.zoom(0.9);
-    }
     if (key == "r") {
         plot.resetAxes()
     }
@@ -550,26 +638,61 @@ function keyTyped() {
     if (key == "m") {
         console.log(plot._xToAxisSystem(mouseX), plot._yToAxisSystem(mouseY))
     }
+    if (key == "s") {
+
+        plot.sectionZoomToggle = !plot.sectionZoomToggle;
+        console.log(plot.sectionZoomToggle)
+    }
     if (key == "z") {
 
+    } if (keyCode == ENTER) {
+        console.log("you pressed enter")
+        let userFunction;
+        let msg = input.value()
+
+        try {
+            let parsed_exp = math.parse(msg);
+            let compiled_exp = parsed_exp.compile();
+            userFunction = x => compiled_exp.evaluate({ x: x })
+            console.log(userFunction(5));
+
+        } catch (error) {
+            console.log("invalid syntax")
+            //console.error(error)
+            userFunction = x => { }
+        }
+        plot.interactiveFunctions[1] = userFunction
     }
 
 
 }
 
-function draw() {
-    background(255, 0, 100);
-    slider.update();
-    plot.autoTicks();
-    let value = slider.getValue()
-    var P = 1;
-    var f = fsquareWave(value);
-    plot.interactiveFunctions[0] = f
-    //console.log(plot.interactiveFunctions[0])
-    //plot.interactiveFunctions[1] = f
-    plot.dragToPan();
-    plot.display();
-    slider.display();
+
+function repaint() {
 
 
 }
+
+function draw() {
+    if (true) {
+        background(255, 0, 100);
+        slider.update();
+        plot.autoTicks();
+        plot.sectionZoom();
+        let value = slider.getValue()
+        var P = 1;
+        var f = fsquareWave(value);
+        plot.interactiveFunctions[0] = f
+        //console.log(plot.interactiveFunctions[0])
+
+        //plot.dragToPan();
+        plot.display();
+        slider.display();
+    }
+
+    //text(input.value(), 400, 400);
+
+}
+// test = math.compile("x+x^2")
+// foo = x=> test.
+// console.log(test)
