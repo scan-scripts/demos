@@ -1,3 +1,4 @@
+
 function mysqr(x) {
     return x ** 2;
 }
@@ -10,6 +11,22 @@ function linSpace(start, stop, num) {
     }
     return a
 
+}
+function calcTickStep(range){
+    const order = Math.floor(Math.log10(range));
+    const significand =  range/10**order;
+    // console.log("range", range)
+    // console.log("order", order)
+    // console.log("significand", significand)
+    if (0<=significand && significand<2){
+        return 10**(order-1);          
+    }
+    if (2<=significand&& significand<5){
+        return 2*10**(order-1);
+    }
+    if (5<=significand&& significand<10){
+        return 5*10**(order-1);           
+    }
 }
 
 /**
@@ -184,7 +201,8 @@ class Plotter {
             active: false
         }
         //this.mouseWasPressed = false;
-
+        this.tickStepX = 1;// calcTickStep(this.maxX- this.minX);
+        this.tickStepY = 1;// calcTickStep(this.maxY- this.minY);
     }
     graphAxislinSpace(num = this.graphWidth) {
         return linSpace(this.xMin, this.xMax, num);
@@ -223,9 +241,22 @@ class Plotter {
     _yToAxisSystem(y) {
         return (this.graphHeight - y) * ((this.yMax - this.yMin) / this.graphHeight) + this.yMin;
     }
-    autoTicks(tickStepX = 1, tickStepY = 1, centerX = 0, centerY = 0) {
-        this.xTicks = arange(centerX, this.xMin, -tickStepX).concat(arange(centerX, this.xMax, tickStepX));
-        this.yTicks = arange(centerY, this.yMin, -tickStepY).concat(arange(centerY, this.yMax, tickStepY));
+
+
+
+    autoTickStep(){
+        const rangeX = this.xMax - this.xMin;
+        const rangeY = this.yMax - this.yMin;
+        this.tickStepX = calcTickStep(rangeX);
+        this.tickStepY = calcTickStep(rangeY);
+        //console.log(this.tickStepX, this.tickStepY)
+
+
+    }
+    autoTicks(centerX = 0, centerY = 0) {
+        this.autoTickStep()
+        this.xTicks = arange(centerX, this.xMin, -this.tickStepX).concat(arange(centerX, this.xMax,this.tickStepX));
+        this.yTicks = arange(centerY, this.yMin, -this.tickStepY).concat(arange(centerY, this.yMax, this.tickStepY));
     }
 
     /**
@@ -266,13 +297,20 @@ class Plotter {
         this.graphArea.textAlign(CENTER, TOP);
         let HorzAxisLabelTop = this._yToGraphSystem(0) + this.tickSize;
         for (let i = 0; i < Xlabels.length; i++) {
-            this.graphArea.text(Xlabels[i], this._xToGraphSystem(this.xTicks[i]), HorzAxisLabelTop)
+            let digits = 15;
+            let label = Number(Xlabels[i].toFixed(digits));
+            this.graphArea.text(label , this._xToGraphSystem(this.xTicks[i]), HorzAxisLabelTop)
 
         }
         let VertAxisLabelLeft = this._xToGraphSystem(0) - this.tickSize;
         this.graphArea.textAlign(RIGHT, CENTER);
         for (let i = 0; i < Ylabels.length; i++) {
-            this.graphArea.text(Ylabels[i], VertAxisLabelLeft, this._yToGraphSystem(this.yTicks[i]))
+            if (Ylabels[i] === undefined) {
+                console.log(Ylabels[i])
+            }
+            let digits =15;
+            let label = Number(Ylabels[i].toFixed(digits));
+            this.graphArea.text(label , VertAxisLabelLeft, this._yToGraphSystem(this.yTicks[i]))
 
         }
     }
@@ -394,6 +432,8 @@ class Plotter {
         this.xMax = this.xMax + dx;
         this.yMin = this.yMin + dy;
         this.yMax = this.yMax + dy;
+        plot.autoTicks();
+        
 
     }
     dragToPan() {
@@ -483,15 +523,6 @@ class Plotter {
 
     }
 
-    zoomX(zoom_factor) {
-
-
-    }
-    zoomX(zoom_factor) {
-
-    }
-
-
     zoom(zoomAmount) {
         let xRange = this.xMax - this.xMin;
         let yRange = this.yMax - this.yMin;
@@ -510,6 +541,7 @@ class Plotter {
 
         this.yMin = zoomFactor * this.yMin - (zoomFactor - 1) * y;
         this.yMax = zoomFactor * yRange + this.yMin;
+        plot.autoTicks();
     }
 
     OriginToGraphCenter() {
@@ -677,15 +709,15 @@ function draw() {
     if (true) {
         background(255, 0, 100);
         slider.update();
-        plot.autoTicks();
-        plot.sectionZoom();
+        
+        //plot.sectionZoom();
         let value = slider.getValue()
         var P = 1;
         var f = fsquareWave(value);
         plot.interactiveFunctions[0] = f
         //console.log(plot.interactiveFunctions[0])
 
-        //plot.dragToPan();
+        plot.dragToPan();
         plot.display();
         slider.display();
     }
